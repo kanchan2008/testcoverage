@@ -1,0 +1,12 @@
+D:\Code\Ascendion\Numbers\bin\Debug\net7.0\Numbers.deps.json
+D:\Code\Ascendion\Numbers\bin\Debug\net7.0\Numbers.dll
+D:\Code\Ascendion\Numbers\bin\Debug\net7.0\Numbers.pdb
+D:\Code\Ascendion\Numbers\obj\Debug\net7.0\Numbers.csproj.AssemblyReference.cache
+D:\Code\Ascendion\Numbers\obj\Debug\net7.0\Numbers.GeneratedMSBuildEditorConfig.editorconfig
+D:\Code\Ascendion\Numbers\obj\Debug\net7.0\Numbers.AssemblyInfoInputs.cache
+D:\Code\Ascendion\Numbers\obj\Debug\net7.0\Numbers.AssemblyInfo.cs
+D:\Code\Ascendion\Numbers\obj\Debug\net7.0\Numbers.csproj.CoreCompileInputs.cache
+D:\Code\Ascendion\Numbers\obj\Debug\net7.0\Numbers.dll
+D:\Code\Ascendion\Numbers\obj\Debug\net7.0\refint\Numbers.dll
+D:\Code\Ascendion\Numbers\obj\Debug\net7.0\Numbers.pdb
+D:\Code\Ascendion\Numbers\obj\Debug\net7.0\ref\Numbers.dll
