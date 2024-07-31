@@ -28,10 +28,10 @@
         <mxCell id="OL0ss4EFGrHLpXLoaCRr-8" value="Branch N or N+1" style="rhombus;strokeWidth=2;whiteSpace=wrap;" vertex="1" parent="1">
           <mxGeometry x="252" y="699" width="165" height="165" as="geometry" />
         </mxCell>
-        <mxCell id="OL0ss4EFGrHLpXLoaCRr-9" value="CI-Base Pipeline: Build Image, Tag N." style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+        <mxCell id="OL0ss4EFGrHLpXLoaCRr-9" value="CI-Base Pipeline: Build Image, Tag N.PR_Number" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
           <mxGeometry x="20" y="932" width="279" height="34" as="geometry" />
         </mxCell>
-        <mxCell id="OL0ss4EFGrHLpXLoaCRr-10" value="CI-Base Pipeline: Build Image, Tag N+1." style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+        <mxCell id="OL0ss4EFGrHLpXLoaCRr-10" value="CI-Base Pipeline: Build Image, Tag N+1.PR_Number" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
           <mxGeometry x="349" y="932" width="296" height="34" as="geometry" />
         </mxCell>
         <mxCell id="OL0ss4EFGrHLpXLoaCRr-11" value="Publish Artifact to GHCR" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
