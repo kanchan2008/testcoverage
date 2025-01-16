@@ -1,0 +1,152 @@
+name: SQL Deployment Workflow
+on:
+  pull_request:
+    branches:
+      - V2.0
+      - V1.2
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment (dev/prod)'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
+      artifact_version:
+        description: 'Version of the artifact to deploy'
+        required: false
+        default: '1.2.3'  # Default version
+        type: string
+
+jobs:
+  determine-environment:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+    steps:
+      - id: set-env
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+            echo "PR_Number=${{ github.event.inputs.artifact_version }}"
+          elif [ "${{ github.event_name }}" == "pull_request" ] || [[ "${{ github.ref }}" == "refs/heads/dev/"* ]] || [[ "${{ github.ref }}" == "refs/heads/feature/"* ]]; then
+            echo "environment=dev" >> $GITHUB_OUTPUT
+            echo "PR_Number=${{ github.event.inputs.artifact_version }}"
+          else
+            echo "environment=prod" >> $GITHUB_OUTPUT
+            echo "PR_Number=${{ github.event.inputs.artifact_version }}"
+          fi
+
+  list-files:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+
+      - name: Get changed files
+        id: set-matrix
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }} HEAD | grep '\.sql$' || echo "test.sql")
+          elif [ "${{ github.event_name }}" == "push" ]; then
+            CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep '\.sql$' || echo "test.sql")
+          else
+            CHANGED_FILES="test.sql"
+          fi
+          
+          FILES_JSON=$(echo "$CHANGED_FILES" | jq -R -s -c 'split("\n") | map(select(length > 0)) | if length == 0 then ["test.sql"] else . end')
+          echo "matrix={\"manifest\":$FILES_JSON}" >> $GITHUB_OUTPUT
+          echo "Files to process: $FILES_JSON"
+
+  validate-sql:
+    needs: [determine-environment, list-files]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJson(needs.list-files.outputs.matrix) }}
+      fail-fast: false
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Print Artifact Version
+        run: |
+          echo "Artifact version is: ${{ github.event.inputs.artifact_version }}"
+
+#      - name: Install SQLFluff
+#        run: pip install sqlfluff
+      
+#      - name: Validate SQL syntax
+#        run: |
+#          echo "Validating SQL file: ${{ matrix.manifest }}"
+#          sqlfluff lint ${{ matrix.manifest }}
+      
+#      - name: Check for destructive commands in production
+#        if: needs.determine-environment.outputs.environment == 'prod'
+#        run: |
+#          if grep -iE "drop|truncate|delete from|update .* where" ${{ matrix.manifest }}; then
+#            echo "Error: Destructive SQL commands detected in production deployment"
+#            exit 1
+#          fi
+
+  apply-sql:
+    needs: [determine-environment, list-files, validate-sql]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJson(needs.list-files.outputs.matrix) }}
+      fail-fast: false
+    environment: ${{ needs.determine-environment.outputs.environment }}
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+#      - name: Set up PostgreSQL client
+#        run: |
+#          sudo apt-get update
+#          sudo apt-get install -y postgresql-client
+
+      - name: Apply SQL for Development Environment
+        if: needs.determine-environment.outputs.environment == 'dev'
+#        env:
+#          PGPASSWORD: ${{ secrets.DEV_DB_PASSWORD }}
+        run: |
+          echo "Applying SQL for file: ${{ matrix.manifest }} in DEV environment"
+ #         psql -h ${{ secrets.DEV_DB_HOST }} \
+ #              -U ${{ secrets.DEV_DB_USER }} \
+ #              -d ${{ secrets.DEV_DB_NAME }} \
+ #              -v environment=dev \
+ #              -v ON_ERROR_STOP=1 \
+ #              -f ${{ matrix.manifest }}
+
+      - name: Apply SQL for Production Environment
+        if: needs.determine-environment.outputs.environment == 'prod'
+#        env:
+#          PGPASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
+        run: |
+          echo "Applying SQL for file: ${{ matrix.manifest }} in PROD environment"
+#          psql -h ${{ secrets.PROD_DB_HOST }} \
+#               -U ${{ secrets.PROD_DB_USER }} \
+#               -d ${{ secrets.PROD_DB_NAME }} \
+#               -v environment=prod \
+#               -v ON_ERROR_STOP=1 \
+#               -f ${{ matrix.manifest }}
+
+#      - name: Record deployment
+#        if: success()
+#        run: |
+#          echo "$(date): Applied ${{ matrix.manifest }} to ${{ needs.determine-environment.outputs.environment }}" >> deployment_log.txt
+#          git config --local user.email "action@github.com"
+#          git config --local user.name "GitHub Action"
+#          git add deployment_log.txt
+#          git commit -m "Record SQL deployment of ${{ matrix.manifest }}"
+#          git push
+
+#      - name: Notify on failure
+#        if: failure()
+#        run: |
+#          echo "SQL deployment failed for ${{ matrix.manifest }} in ${{ needs.determine-environment.outputs.environment }} environment"
+#          # Add notification logic here (e.g., Slack, email)
