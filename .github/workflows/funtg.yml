@@ -1,0 +1,19 @@
+name: Trigger Azure Function (No 3rd-Party Actions)
+
+on:
+  workflow_dispatch:  # manual trigger
+  push:
+    branches:
+      - main
+
+jobs:
+  trigger-azure-function:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Azure Function via HTTP POST
+        run: |
+          curl -X POST "${{ secrets.AZURE_FUNCTION_URL }}" \
+               -H "x-functions-key: ${{ secrets.AZURE_FUNCTION_KEY }}" \
+               -H "Content-Type: application/json" \
+               -d '{"message": "Triggered from GitHub Actions"}'
