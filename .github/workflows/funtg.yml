@@ -1,19 +1,34 @@
-name: Trigger Azure Function (No 3rd-Party Actions)
+name: Check for Dual PR to V4.0
 
 on:
-  workflow_dispatch:  # manual trigger
-  push:
+  pull_request:
+    types: [opened, synchronize, reopened]
     branches:
-      - main
+      - V3.0
 
 jobs:
-  trigger-azure-function:
+  check-dual-pr:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Trigger Azure Function via HTTP POST
-        run: |
-          curl -X POST "${{ secrets.AZURE_FUNCTION_URL }}" \
-               -H "x-functions-key: ${{ secrets.AZURE_FUNCTION_KEY }}" \
-               -H "Content-Type: application/json" \
-               -d '{"message": "Triggered from GitHub Actions"}'
+      - name: Check for matching PR to V4.0
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sourceBranch = context.payload.pull_request.head.ref;
+            const currentPRNumber = context.payload.pull_request.number;
+
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              base: 'V4.0',
+            });
+
+            const matchingPR = prs.find(pr => pr.head.ref === sourceBranch && pr.number !== currentPRNumber);
+
+            if (!matchingPR) {
+              core.setFailed(`No open pull request from branch '${sourceBranch}' targeting 'V4.0'. Please create a corresponding PR.`);
+            } else {
+              console.log(`Found matching PR (#${matchingPR.number}) to V4.0 from '${sourceBranch}'.`);
+            }
