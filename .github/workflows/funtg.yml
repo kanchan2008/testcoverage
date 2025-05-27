@@ -1,34 +1,28 @@
-name: Check for Dual PR to V4.0
+name: Trigger Logic App via Azure CLI
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    branches:
-      - V3.0
+  workflow_dispatch:
 
 jobs:
-  check-dual-pr:
+  trigger-logicapp:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Check for matching PR to V4.0
-        uses: actions/github-script@v7
+
+      - name: Azure Login
+        uses: azure/login@v1
         with:
-          script: |
-            const sourceBranch = context.payload.pull_request.head.ref;
-            const currentPRNumber = context.payload.pull_request.number;
+          creds: ${{ secrets.AZURE_CREDENTIALS }} # Use a service principal with appropriate RBAC
 
-            const { data: prs } = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              base: 'V4.0',
-            });
+      - name: Trigger Logic App
+        run: |
+          # Get the trigger callback URL for the Logic App
+          callbackUrl=$(az logic workflow trigger callback-url show \
+            --name MyLogicApp \
+            --resource-group MyResourceGroup \
+            --workflow-name manual \
+            --query "value" -o tsv)
 
-            const matchingPR = prs.find(pr => pr.head.ref === sourceBranch && pr.number !== currentPRNumber);
-
-            if (!matchingPR) {
-              core.setFailed(`No open pull request from branch '${sourceBranch}' targeting 'V4.0'. Please create a corresponding PR.`);
-            } else {
-              console.log(`Found matching PR (#${matchingPR.number}) to V4.0 from '${sourceBranch}'.`);
-            }
+          echo "Triggering Logic App..."
+          curl -X POST "$callbackUrl" \
+            -H "Content-Type: application/json" \
+            -d '{"source": "github", "status": "triggered"}'
