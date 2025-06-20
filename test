@@ -1,10 +1,48 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: maintenance-banner
+  name: custom-nginx-config
 data:
-  banner.html: |
-    <div style="position:fixed;top:0;width:100%;background:red;color:white;text-align:center;z-index:9999;padding:10px;font-weight:bold;">
-      ⚠️ QA Environment - Maintenance Mode Active ⚠️
-    </div>
-  enable_maintenance.flag: "true"
+  nginx.conf: |
+    worker_processes  1;
+
+    events {
+      worker_connections  1024;
+    }
+
+    http {
+      include       mime.types;
+      default_type  application/octet-stream;
+      sendfile        on;
+
+      server {
+        listen       80;
+        server_name  localhost;
+
+        location / {
+          root /usr/share/nginx/html;
+          index index.html;
+
+          ssi on;
+          ssi_types text/html;
+          sub_filter_once off;
+
+          set $inject_banner "";
+          if (-f /etc/nginx/enable_maintenance.flag) {
+              set $inject_banner '<!--#include virtual="/banner.html" -->';
+          }
+
+          sub_filter '<body>' '<body>$inject_banner';
+        }
+
+        location = /banner.html {
+          root /etc/nginx;
+          default_type text/html;
+        }
+
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+          root   /usr/share/nginx/html;
+        }
+      }
+    }
