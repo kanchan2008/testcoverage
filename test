@@ -1,36 +1,33 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: angular-nginx-app
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: angular-nginx-app
-  template:
-    metadata:
-      labels:
-        app: angular-nginx-app
-    spec:
-      containers:
-      - name: angular-nginx
-        image: your-dockerhub-user/angular-nginx-app:latest
-        volumeMounts:
-        - name: banner-config
-          mountPath: /etc/nginx/banner.html
-          subPath: banner.html
-        - name: banner-config
-          mountPath: /etc/nginx/enable_maintenance.flag
-          subPath: enable_maintenance.flag
-        - name: nginx-config
-          mountPath: /etc/nginx/nginx.conf
-          subPath: nginx.conf
-        ports:
-        - containerPort: 80
-      volumes:
-      - name: banner-config
-        configMap:
-          name: maintenance-banner
-      - name: nginx-config
-        configMap:
-          name: custom-nginx-config
+name: Toggle Maintenance Banner
+
+on:
+  workflow_dispatch:
+    inputs:
+      enable_banner:
+        description: 'Enable maintenance banner (true/false)'
+        required: true
+        default: 'true'
+
+jobs:
+  toggle-banner:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Decode Kubeconfig
+      run: echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig
+
+    - name: Install kubectl
+      uses: azure/setup-kubectl@v3
+
+    - name: Update maintenance-banner ConfigMap
+      run: |
+        export KUBECONFIG=kubeconfig
+        if [ "${{ github.event.inputs.enable_banner }}" = "true" ]; then
+          kubectl -n ${{ secrets.KUBE_NAMESPACE }} patch configmap maintenance-banner --type merge -p '{"data":{"enable_maintenance.flag":"true"}}'
+        else
+          kubectl -n ${{ secrets.KUBE_NAMESPACE }} patch configmap maintenance-banner --type merge -p '{"data":{"enable_maintenance.flag":""}}'
+        fi
+
+    - name: Restart Deployment to re-mount ConfigMap
+      run: |
+        kubectl -n ${{ secrets.KUBE_NAMESPACE }} rollout restart deployment angular-nginx-app
