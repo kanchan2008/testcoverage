@@ -1,48 +1,36 @@
-apiVersion: v1
-kind: ConfigMap
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: custom-nginx-config
-data:
-  nginx.conf: |
-    worker_processes  1;
-
-    events {
-      worker_connections  1024;
-    }
-
-    http {
-      include       mime.types;
-      default_type  application/octet-stream;
-      sendfile        on;
-
-      server {
-        listen       80;
-        server_name  localhost;
-
-        location / {
-          root /usr/share/nginx/html;
-          index index.html;
-
-          ssi on;
-          ssi_types text/html;
-          sub_filter_once off;
-
-          set $inject_banner "";
-          if (-f /etc/nginx/enable_maintenance.flag) {
-              set $inject_banner '<!--#include virtual="/banner.html" -->';
-          }
-
-          sub_filter '<body>' '<body>$inject_banner';
-        }
-
-        location = /banner.html {
-          root /etc/nginx;
-          default_type text/html;
-        }
-
-        error_page   500 502 503 504  /50x.html;
-        location = /50x.html {
-          root   /usr/share/nginx/html;
-        }
-      }
-    }
+  name: angular-nginx-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: angular-nginx-app
+  template:
+    metadata:
+      labels:
+        app: angular-nginx-app
+    spec:
+      containers:
+      - name: angular-nginx
+        image: your-dockerhub-user/angular-nginx-app:latest
+        volumeMounts:
+        - name: banner-config
+          mountPath: /etc/nginx/banner.html
+          subPath: banner.html
+        - name: banner-config
+          mountPath: /etc/nginx/enable_maintenance.flag
+          subPath: enable_maintenance.flag
+        - name: nginx-config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+        ports:
+        - containerPort: 80
+      volumes:
+      - name: banner-config
+        configMap:
+          name: maintenance-banner
+      - name: nginx-config
+        configMap:
+          name: custom-nginx-config
