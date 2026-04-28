@@ -1,0 +1,107 @@
+name: Auto Approve PR (Resolved + 1 Approval)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  auto-approve:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Auto approve if conditions met
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const prNumber = pr.number;
+
+            // 0. Prevent bot-trigger loops
+            if (context.actor.includes("bot")) {
+              console.log("Triggered by bot, skipping...");
+              return;
+            }
+
+            // 1. Get all reviews
+            const reviews = await github.rest.pulls.listReviews({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+            });
+
+            let hasHumanApproval = false;
+            let hasChangesRequested = false;
+            let alreadyApprovedByBot = false;
+
+            for (const r of reviews.data) {
+              if (r.state === "APPROVED" && r.user.type !== "Bot") {
+                hasHumanApproval = true;
+              }
+              if (r.state === "CHANGES_REQUESTED") {
+                hasChangesRequested = true;
+              }
+              if (
+                r.state === "APPROVED" &&
+                r.user.login === "github-actions[bot]"
+              ) {
+                alreadyApprovedByBot = true;
+              }
+            }
+
+            // 2. Skip if already approved by bot
+            if (alreadyApprovedByBot) {
+              console.log("Already approved by github-actions[bot], skipping...");
+              return;
+            }
+
+            // 3. Fetch review threads (GraphQL)
+            const query = `
+              query($owner:String!, $repo:String!, $pr:Int!) {
+                repository(owner:$owner, name:$repo) {
+                  pullRequest(number:$pr) {
+                    reviewThreads(first:100) {
+                      nodes {
+                        isResolved
+                      }
+                    }
+                  }
+                }
+              }
+            `;
+
+            const result = await github.graphql(query, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pr: prNumber
+            });
+
+            const threads = result.repository.pullRequest.reviewThreads.nodes;
+            const unresolved = threads.some(t => !t.isResolved);
+
+            console.log("Check summary:", {
+              hasHumanApproval,
+              hasChangesRequested,
+              unresolved,
+              alreadyApprovedByBot
+            });
+
+            // 4. Final decision
+            if (hasHumanApproval && !hasChangesRequested && !unresolved) {
+              console.log("All conditions met → approving PR");
+
+              await github.rest.pulls.createReview({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+                event: "APPROVE"
+              });
+
+            } else {
+              console.log("Conditions not met → skipping approval");
+            }
